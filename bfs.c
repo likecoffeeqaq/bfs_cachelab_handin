@@ -19,6 +19,15 @@ static int frontier[V];
 
 int max_v_index=0;
 
+typedef struct {
+    int src;
+    int dst;
+} edge;
+
+edge edges[E];
+int v_map[V];
+
+void load_map(char *map_fn);
 void load_csr(char *csr_fn);
 void bfs(int source);
 void display();
@@ -34,9 +43,9 @@ int main(int argc, char* argv[]) {
     }
     csr_index[i] = -1;
 
-
+    load_map("sort.map");
     /****************修改路径*******************/
-    load_csr("./XXXX.txt");
+    load_csr("./data/graph-256-clean.txt");
     /******************************************/
 
 
@@ -72,6 +81,30 @@ E.g.:
     grep -v ^# facebook_combined.txt | awk '{print $1" "$2"\n"$2" "$1}' | sort -n -k1 -k2 | uniq
 
 */
+void load_map(char *map_fn) {
+    char buf[1000];
+    FILE* map_fp = fopen(map_fn, "r");
+
+    if(!map_fp){
+        fprintf(stderr, "%s: %s\n", map_fn, strerror(errno));
+        exit(1);
+    }
+
+    while(fgets(buf, 1000, map_fp)) {
+        unsigned int from, to;
+        sscanf(buf, "%u %u", &from, &to);
+        v_map[from] = to;
+    }
+
+    fclose(map_fp);
+    return;
+}
+
+int cmp(const void* a, const void* b) {
+    edge ia = *(edge*)a, ib = *(edge*)b;
+    return ia.src - ib.src;
+}
+
 void load_csr(char *csr_fn) {
     char buf[1000];
     unsigned int num_v = 0, num_e = 0;
@@ -83,16 +116,29 @@ void load_csr(char *csr_fn) {
         exit(1);
     }
 
-    csr_index[0] = 0;
     while(fgets(buf, 1000, csr_fp) != NULL) {
         sscanf(buf, "%u %u", &v_from, &v_to);
+        edges[num_e].src = v_map[v_from];
+        edges[num_e].dst = v_map[v_to];
+        // edges[num_e].src = v_from;
+        // edges[num_e].dst = v_to;
+        num_e++;
+    }
+    qsort(edges, num_e, sizeof(edge), cmp);
+    for (int i = 0; i < num_e; i++) {
+        printf("%d %d\n", edges[i].src, edges[i].dst);
+    }
+
+    csr_index[0] = 0;
+    for (int i = 0; i < num_e; i++) {
+        v_from = edges[i].src;
+        v_to = edges[i].dst;
         if (v_from > v_prev) {
             num_v++;
-            for (int i=(v_prev+1); i<=v_from; i++) csr_index[i] = num_e;
+            for (int j=(v_prev+1); j<=v_from; j++) csr_index[j] = num_e;
             v_prev = v_from;
         }
-        csr_edges[num_e] = v_to;
-        num_e++;
+        csr_edges[i] = v_to;
     }
  
     csr_index[v_from+1]=num_e;
@@ -120,5 +166,3 @@ void bfs(int source) {
         }
     }
 } /*End of bfs()*/
-
-
